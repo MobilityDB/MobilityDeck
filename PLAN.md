@@ -5,6 +5,9 @@ objects of any of its engines. It holds no code of its own for an engine. Displa
 with MEST, is a concern orthogonal to the engines: its primitives live once in MEOS and reach every
 engine through the MEOS catalog, as the MEST engine lives once in MEOS and every binding wires it in.
 
+MOVE, the QGIS plugin of the ecosystem, is the second viewer on the same stack: what MEOS.js and
+`meos.js/deckgl` do for MobilityDeck in the browser, PyMEOS does for MOVE in the Python of QGIS.
+
 ## The structure
 
 | Layer | Repository | Role |
@@ -13,7 +16,8 @@ engine through the MEOS catalog, as the MEST engine lives once in MEOS and every
 | Engines | MobilityDB, MobilityDuck, MobilitySpark, MobilityFlink, MobilityKafka, MobilityNebula | Compute; each is a backend of MobilityAPI |
 | Gateway | MobilityAPI | The one contract a client reads: OGC API Moving Features, collections (Part 1) and streams (Part 4) |
 | Browser library | MEOS.js, `meos.js/deckgl` | Decodes MEOS values, computes in the browser, builds the deck.gl layers |
-| Viewer | MobilityDeck | One application; the engine it shows is a setting of MobilityAPI, not code |
+| Desktop library | PyMEOS (`pymeos_cffi`) | Decodes MEOS values and computes in the Python of QGIS, as `meos.js` does in the browser |
+| Viewers | MobilityDeck (browser), MOVE (QGIS) | One application each; the engine they show is a setting of MobilityAPI, not code |
 
 MobilityAPI holds the backends of MobilityDB (`backend.go`), MobilityDuck (`backend_duck.go`) and
 MobilitySpark (`backend_spark.go`) and the stream bridges of MobilityFlink and MobilityKafka; an
@@ -24,6 +28,27 @@ layer, over MapLibre or standalone; MobilityAPI's map (`tutorial-stream/map/`) i
 
 Two paths bypass the gateway, for speed: the vector tiles MobilityDB serves through `pg_tileserv`,
 and files a browser reads with `meos.js`.
+
+MOVE reads MobilityDB alone, through `psycopg`: it builds a materialized view per temporal column
+(`atTime`, `instants`, `startTimestamp`, the casts of `tgeogpoint` and `tnpoint` to `tgeompoint`),
+one row per piece of a sequence whose M counts the seconds since its start, and its Fast preview
+(`move_trajectory_item.py`) interpolates the position of each piece on every frame with NumPy. It
+holds no MEOS in the client: its interpolation restates in NumPy what MEOS computes, the
+inclusivity of the bounds and step interpolation among it.
+
+MOVE-bench, the benchmark of a ULB master's thesis (2026), measured six ways of animating MobilityDB
+trajectories in QGIS, median milliseconds per frame on the STIB buses (17k) and the AIS ships (6k):
+
+| Way | STIB | AIS |
+|---|---|---|
+| `pymeos_cffi` on raw EWKB, `tpoint_value_at_timestamptz` per feature and frame | 5.5 | 15.4 |
+| memory layer and expression | 7.5 | 126 |
+| MOVE's Fast preview, NumPy over the pieces | 13.3 | 67 |
+| columnar NumPy | 22.9 | 28.6 |
+| PyMEOS objects, `value_at_timestamp` per feature and frame | 60.5 | 128 |
+| MOVE's PostgreSQL layer and expression | 120 | 550 |
+
+Its numbers hold for PyMEOS 1.2 and an earlier MOVE, the fork MOVE-bench carries in `move_plugin/`.
 
 ## The display primitives, in MEOS
 
@@ -67,9 +92,17 @@ rather than one per instant.
    - the tiles of `mvt/` cut by space alone against tiles cut by space and time (`spaceTimeSplit`), so
      that a frame loads only the trips of its time window;
    - trips restricted, simplified and measured by `meos.js` in the browser as they arrive, against
-     the same computation in the engine before they are sent.
+     the same computation in the engine before they are sent;
+   - in MOVE, the position of each frame from MEOS per feature (`pymeos_cffi`, the fastest way of
+     MOVE-bench) against NumPy over the arrays of the MEOS accessor prepared once per trip, the form
+     `TripsLayer` interpolates on the GPU, at both sizes and a larger one, since the first costs a
+     call per feature and frame and the second one pass over all features.
 
    The examples keep the faster of each pair, and the measurements are recorded beside them.
+5. **MOVE on the stack.** MOVE reads its trips through MobilityAPI or from files, as MobilityDeck
+   does, decodes and restricts them with PyMEOS, and computes each frame the way step 4 keeps; its
+   NumPy interpolation of M-encoded pieces goes, and with it the materialized views it builds in
+   MobilityDB. PyMEOS installs into the Python of QGIS on Linux, macOS and Windows as part of MOVE.
 
 ## Beyond this repository
 
@@ -78,4 +111,7 @@ rather than one per instant.
 - **MobilityAPI:** a backend for MobilityNebula, and `asBinary` as its binary response (row IO-B24
   of MobilityDB #3788).
 - **MEOS.js:** `meos.js/deckgl` calling that accessor once per trajectory once MEOS has it.
+- **PyMEOS:** the same accessor through `pymeos_cffi`, for MOVE.
+- **MOVE-bench:** archived once its author agrees and step 4 has cited its measurements, its README
+  pointing to MOVE.
 - **MobilityNebula:** `asMVTGeom` and the split functions in its plugin, as its parity ledger states.
