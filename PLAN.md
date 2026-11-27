@@ -17,7 +17,7 @@ MOVE, the QGIS plugin of the ecosystem, is the second viewer on the same stack: 
 | Gateway | MobilityAPI | The one contract a client reads: OGC API Moving Features, collections (Part 1) and streams (Part 4) |
 | Browser library | MEOS.js, `meos.js/deckgl` | Decodes MEOS values, computes in the browser, builds the deck.gl layers |
 | Desktop library | PyMEOS (`pymeos_cffi`) | Decodes MEOS values and computes in the Python of QGIS, as `meos.js` does in the browser |
-| Viewers | MobilityDeck (browser), MOVE (QGIS) | One application each; the engine they show is a setting of MobilityAPI, not code |
+| Viewers | MobilityDeck (browser, deck.gl), MOVE (QGIS), and one for each other environment: MobilityOpenLayers, MobilityLeaflet, MobilityGeoServer, Jupyter notebooks (`notebook/` of MobilityDeck) | One application each; the engine they show is a setting of MobilityAPI, not code |
 
 MobilityAPI holds the backends of MobilityDB (`backend.go`), MobilityDuck (`backend_duck.go`) and
 MobilitySpark (`backend_spark.go`) and the stream bridges of MobilityFlink and MobilityKafka; an
@@ -70,6 +70,23 @@ is an accessor rather than a format: the binary interchange stays `asBinary`, wh
 engine carries, and the arrays `temporal_timestamps` and `tfloat_values` answer hold distinct values
 rather than one per instant.
 
+## The viewer of each environment
+
+The ecosystem has a viewer for each environment its users work in. MobilityDeck in the browser and
+MOVE in QGIS are the two the steps of this repository build. The other repositories of the
+organization that display MobilityDB data use neither MEOS.js, MobilityAPI nor the catalog, each
+with its own server or its own SQL. A viewer of another environment joins the stack in its own
+repository (step 8); a viewer MOVE subsumes in QGIS is archived:
+
+| Repository | Environment | What it holds | On the stack |
+|---|---|---|---|
+| MobilityQGIS | Scripting in the Python console of QGIS, where a user animates trips with code of their own | The experiments of a ULB MA1 project: six scripts that, on each frame of the temporal controller, compute the position of each trip with `valueAtTimestamp` of MobilityDB-python (an archived driver whose place PyMEOS holds) and add it to a memory layer, over `atPeriod` and `period`, which MobilityDB does not declare (its names are `atTime` and `tstzspan`) | Subsumed by MOVE, the viewer of the same environment, which builds its layers from any query and sets their temporal properties (`QgsVectorLayerTemporalProperties`) for the temporal controller; its way of computing a frame, MEOS per feature and frame in the client, is the first arm step 4 measures for MOVE. Archived, its README pointing to MOVE and its report cited beside MOVE-bench |
+| MobilityOpenLayers | Browser GIS applications combining many sources and OGC services | An OpenLayers page over a file of trips (`trips.json`) | Its trips read from MobilityAPI and decoded by `meos.js`, its tiles cut by `asMVTGeom` |
+| MobilityLeaflet | Lightweight browser maps | A 2023 master's thesis: a Leaflet front end, its own WSGI server and its own SQL functions | Its trips read from MobilityAPI, which takes the place of its server and its SQL functions, and decoded by `meos.js` |
+| MobilityGeoServer | Organizations publishing through the OGC services of a GeoServer | A page showing with Leaflet the layers a GeoServer publishes | GeoServer publishes, as plain geometries, what MobilityDB computes (the position of each object at a time, its trajectory over an interval), and reads no MEOS type itself |
+| Franchise | A notebook SQL client in the browser or the desktop (Electron) | A fork of HVF/franchise, three commits on its 2019 stack (React 15, Electron 1.7, nwb), whose MobilityDB cell draws a column whose type is `tgeompointseq`, a type MobilityDB does not declare | Subsumed by the notebooks of `notebook/`, which serve the same environment, as the next row states. Archived after the notebooks of step 8, its README pointing to them |
+| MobilityDeck `notebook/` | Jupyter notebooks, the SQL notebook environment of the ecosystem | Nothing yet | SQL cells through JupySQL (`%%sql`) over MobilityDB, MobilityDuck or any engine with a Python driver, and a widget drawing a temporal column on a map through `meos.js/deckgl`, the adapter every browser viewer shares; the code of the ecosystem, no fork of another application |
+
 ## Steps, one pull request each
 
 1. **The stream example.** The front end of MobilityFlink-Deck becomes `stream/` of this repository,
@@ -103,6 +120,21 @@ rather than one per instant.
    does, decodes and restricts them with PyMEOS, and computes each frame the way step 4 keeps; its
    NumPy interpolation of M-encoded pieces goes, and with it the materialized views it builds in
    MobilityDB. PyMEOS installs into the Python of QGIS on Linux, macOS and Windows as part of MOVE.
+6. **The types beyond points.** A `tgeometry` and a `trgeometry` are drawn as the polygon of each
+   frame, a `th3index` as the hexagon of each frame (`H3HexagonLayer`), a `tcbuffer` as its circle,
+   and a `tfloat` or `tint` attribute of a trip as a chart whose cursor follows the clock of the
+   map. The value of each frame is `valueAtTimestamp`, which MEOS declares over each of these types
+   and the client computes nothing of; the shape of an instant is the one its type states (step
+   interpolation of a `tgeometry` holds its polygon until the next instant).
+7. **One clock for the past and the stream.** The clock of MobilityDeck reads a stored trip through
+   MobilityAPI Part 1 and a live one through Part 4, and its slider passes from the one to the
+   other; a live trip shows the watermark of the stream it reads, the instant up to which it is
+   complete.
+8. **The viewer of each environment on the stack.** MobilityOpenLayers, MobilityLeaflet,
+   MobilityGeoServer and the notebooks of `notebook/` each take the form the table above states,
+   one pull request in each repository, and each shows the trips of step 3's check, so that every
+   viewer draws the same data. Franchise is archived after the notebooks, its README pointing to
+   them.
 
 ## Beyond this repository
 
@@ -115,3 +147,18 @@ rather than one per instant.
 - **MOVE-bench:** archived once its author agrees and step 4 has cited its measurements, its README
   pointing to MOVE.
 - **MobilityNebula:** `asMVTGeom` and the split functions in its plugin, as its parity ledger states.
+
+## Left out, and why
+
+- **A new repository for the shared display code.** `meos.js/deckgl` is that code for the browser
+  and PyMEOS for QGIS; a third home would copy them.
+- **Apache Arrow as the transport.** The binary interchange of every type and engine is `asBinary`
+  (IO-B24 of MobilityDB #3788), and the flat arrays `TripsLayer` reads are the MEOS accessor of
+  G121. Arrow returns only if step 4 measures a cost these two leave.
+- **A GeoServer data store or a WMS `TIME` dimension.** A tile or a map image holds the value of a
+  type at one time and loses its interpolation; the tiles come from `asMVTGeom`, and the temporal
+  value from MobilityAPI.
+- **A QGIS Processing provider.** It would send MOVE's computation back to SQL in MobilityDB alone,
+  where step 5 moves it to MEOS in the client for every engine.
+- **A conformance suite across viewers.** Step 3 is that suite: the same query through each engine
+  gives the same data of each layer, compared as data, not pixels.
