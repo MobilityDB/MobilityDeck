@@ -138,6 +138,13 @@ repository (step 8); a viewer MOVE subsumes in QGIS is archived:
    one pull request in each repository, and each shows the trips of step 3's check, so that every
    viewer draws the same data. Franchise is archived after the notebooks, its README pointing to
    them.
+9. **The demo: any viewer over any engine.** A workshop in MobilityDB-workshop where a participant
+   chooses a viewer (MobilityDeck, MobilityOpenLayers, MobilityLeaflet, the notebooks, MOVE in
+   QGIS) and an engine (MobilityDB, MobilityDuck, MobilitySpark, and the stream of MobilityFlink
+   or MobilityKafka), and plays the same trips. The engine is the backend MobilityAPI serves, a
+   setting, and the viewer reads it through `meos.js/viewer` or PyMEOS, so every pair is one choice
+   of two names; the pairs step 3 checks are the ones the workshop offers. One compose file starts
+   MobilityAPI, the engines and the browser viewers; MOVE runs in the participant's QGIS.
 
 ## Prerequisites and order
 
