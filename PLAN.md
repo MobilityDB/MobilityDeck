@@ -91,8 +91,11 @@ repository (step 8); a viewer MOVE subsumes in QGIS is archived:
 
 1. **The stream example.** The front end of MobilityFlink-Deck becomes `stream/` of this repository,
    its history kept, reading the stream of MobilityAPI (Part 4) through its Flink bridge rather than
-   the Flask, Kafka and WebSocket servers of MobilityFlink-Deck. MobilityFlink-Deck is then archived,
-   its README pointing here.
+   the Flask, Kafka and WebSocket servers of MobilityFlink-Deck. Its data path and its interpolation
+   in JavaScript give way to those of MobilityAPI's map (`tutorial-stream/map`), which moves here
+   with it: MEOS.js computes each position with `valueAtTimestamp` on one clock, and the replay,
+   follow and statistics of MobilityFlink-Deck stay. The README of MobilityAPI's tutorial points
+   here. MobilityFlink-Deck is then archived, its README pointing here.
 2. **The examples on `meos.js/deckgl` and MobilityAPI.** `mvt/`, `geojsonvt/` and `stream/` move to
    the stack of MobilityAPI's map (deck.gl 9, Vite, MapLibre) and read their trips through
    `meos.js/deckgl`; the types MOVE draws (`tgeompoint`, `tgeogpoint`, `tcbuffer`, `tnpoint`, MOVE #10)
@@ -142,7 +145,7 @@ The steps need the following, outside the viewers:
 
 | Row | Repository | What | Needed by |
 |---|---|---|---|
-| V1 | MobilityDB | The accessor of the coordinates and timestamps of each instant (row G121 of MobilityDB #2861), its name decided by the owner | steps 4, 5 |
+| V1 | MobilityDB | The accessor of the coordinates and timestamps of each instant (row G121 of MobilityDB #2861): `double *tpoint_coords(const Temporal *temp, double **ycoords, double **zcoords, TimestampTz **times, int *count)`, the inverse of `tpointseq_make_coords`, whose arrays it answers: the x coordinates returned, the y and z coordinates (none for a point without Z) and the timestamps as out-parameters, so a sequence is made again from them; a binding converts the timestamps to its host's through `timestamptz_to_unix_us`, and `meos.js/deckgl` interleaves the coordinates `TripsLayer` reads. No SQL function, being an accessor for the bindings | steps 4, 5 |
 | V2 | MEOS-API, MEOS.js, PyMEOS | V1 in the catalog, the two bindings regenerated and released, the published packages being what the viewers install (`meos.js` 1.0.2 on npm, `pymeos-cffi` 1.3.0 on PyPI) | steps 4, 5 |
 | V3 | PyMEOS-CFFI | Windows wheels: PyPI holds wheels for Linux and macOS and the source alone, so the Python of QGIS on Windows cannot install it | step 5 |
 | V4 | MobilityAPI | `asBinary` as its binary response (row IO-B24 of MobilityDB #3788) | step 4 |
@@ -150,7 +153,7 @@ The steps need the following, outside the viewers:
 | V6 | MEOS.js | `meos.js/deckgl` drawing polygons, hexagons, circles and series of values; it reads temporal points alone, from their MF-JSON | step 6 |
 | V7 | MobilityAPI | A backend for MobilityNebula; step 3 compares three engines without it | step 3, the fourth engine |
 | V8 | MobilityQGIS | Archived, its README pointing to MOVE | none |
-| V9 | MobilityAPI | A continuous query over the moving features of a whole collection: a geometry query streams one feature (`/collections/{cid}/items/{fid}/tgsequence/queries`), so a live fleet takes one subscription per object | steps 1, 7 |
+| V9 | MobilityAPI | A continuous query over the moving features of a whole collection, `/collections/{cid}/tgsequence/queries`, each event carrying the identifier of its feature; a geometry query streams one feature (`/collections/{cid}/items/{fid}/tgsequence/queries`), so a live fleet takes one subscription per object. As the queries of one feature, it claims no OGC class | steps 1, 7 |
 
 Steps 1, 2 and 3, the OpenLayers, Leaflet, GeoServer and notebook viewers of step 8, and V1, V3,
 V4 and V9 start at once and in parallel; the fleet of step 1 reads V9. Step 4 follows V1 and V2,
