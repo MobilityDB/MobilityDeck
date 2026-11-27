@@ -136,6 +136,28 @@ repository (step 8); a viewer MOVE subsumes in QGIS is archived:
    viewer draws the same data. Franchise is archived after the notebooks, its README pointing to
    them.
 
+## Prerequisites and order
+
+The steps need the following, outside the viewers:
+
+| Row | Repository | What | Needed by |
+|---|---|---|---|
+| V1 | MobilityDB | The accessor of the coordinates and timestamps of each instant (row G121 of MobilityDB #2861), its name decided by the owner | steps 4, 5 |
+| V2 | MEOS-API, MEOS.js, PyMEOS | V1 in the catalog, the two bindings regenerated and released, the published packages being what the viewers install (`meos.js` 1.0.2 on npm, `pymeos-cffi` 1.3.0 on PyPI) | steps 4, 5 |
+| V3 | PyMEOS-CFFI | Windows wheels: PyPI holds wheels for Linux and macOS and the source alone, so the Python of QGIS on Windows cannot install it | step 5 |
+| V4 | MobilityAPI | `asBinary` as its binary response (row IO-B24 of MobilityDB #3788) | step 4 |
+| V5 | MobilityAPI, MobilityFlink | The watermark of a stream carried through the bridge to each event; no Go source of MobilityAPI carries one | step 7 |
+| V6 | MEOS.js | `meos.js/deckgl` drawing polygons, hexagons, circles and series of values; it reads temporal points alone, from their MF-JSON | step 6 |
+| V7 | MobilityAPI | A backend for MobilityNebula; step 3 compares three engines without it | step 3, the fourth engine |
+| V8 | MobilityQGIS | Archived, its README pointing to MOVE | none |
+| V9 | MobilityAPI | A continuous query over the moving features of a whole collection: a geometry query streams one feature (`/collections/{cid}/items/{fid}/tgsequence/queries`), so a live fleet takes one subscription per object | steps 1, 7 |
+
+Steps 1, 2 and 3, the OpenLayers, Leaflet, GeoServer and notebook viewers of step 8, and V1, V3,
+V4 and V9 start at once and in parallel; the fleet of step 1 reads V9. Step 4 follows V1 and V2,
+step 5 step 4 and V3, step 6 V6, step 7 V5 and V9.
+
+The risk: MOVE on Windows rests on V3, which the build of PyMEOS-CFFI does not produce.
+
 ## Beyond this repository
 
 - **MEOS:** the coordinates and timestamps of each instant as parallel arrays, one public accessor
